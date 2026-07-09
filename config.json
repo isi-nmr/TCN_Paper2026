@@ -1,0 +1,105 @@
+{
+    "paperDataRoot": "paperData",
+    "response": {
+        "dataPath": "paperData/high_snr_response",
+        "scan": "3",
+        "outRes": 2e-6
+    },
+    "preemp": {
+        "dataPath": "paperData/before_adjustments_response_b0_preemphasis",
+        "scan": "5",
+        "outRes": 2e-6
+    },
+    "B0": {
+        "dataPath": "paperData/before_adjustments_response_b0_preemphasis",
+        "scan": "5",
+        "outRes": 2e-6
+    },
+    "preemp_tune": {
+        "dataPath": "paperData/before_adjustments_response_b0_preemphasis",
+        "scan": "5",
+        "outRes": 2e-6
+    },
+    "trainingData": {
+        "dataPaths": [
+            "paperData/tcn_training_testing"
+        ],
+        "scans": [
+            [
+                5,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57
+            ]
+        ],
+        "testingShapes": []
+    },
+    "model": {
+        "model":"TCNSkip",
+        "nChannels": 60,
+        "nLayers": 6,
+        "kernelSize": 4,
+        "lr": 6e-4,
+        "weightDecay": 1e-7,
+        "dropout": 0.05,
+        "nEpoch": 800, 
+        "filterFreq": 220e3,
+        "shiftByNSamples": 13,
+        "outRes": 2e-6,
+        "estimateNoise":true,
+        "weightTraj":false,
+        "gradTrajWeight_alpha":1.0,
+        "derivative_comp":"gradient",
+        "batchSize":96,
+        "earlyStopping": {
+            "enabled": true,
+            "patience": 120,
+            "minDelta": 1e-7,
+            "minEpoch": 100
+        }
+    }
+}

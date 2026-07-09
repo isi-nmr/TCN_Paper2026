@@ -1,0 +1,96 @@
+[project]
+name = "brukertuneup"
+version = "0.1.0"
+description = "Bruker tuneup tools"
+authors = [
+    {name = "vitous",email = "vitous5@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+
+dependencies = [
+    "pip",
+    "numpy (>=2.2.4,<3.0.0)",
+    "itk (>=5.4.2.post1,<6.0.0)",
+    "graphviz (>=0.20.3,<0.21.0)",
+    "ismrmrd (>=1.14.1,<2.0.0)",
+    "matplotlib (>=3.10.1,<4.0.0)",
+    "pandas (>=2.2.3,<3.0.0)",
+    "pymapvbvd (>=0.6.1,<0.7.0)",
+    "pytest (>=8.3.5,<9.0.0)",
+    "scikit-learn (>=1.6.1,<2.0.0)",
+    "scipy (>=1.15.2,<2.0.0)",
+    "ruff (>=0.11.0,<1.12.0)",
+    "nibabel (>=5.3.2,<6.0.0)",
+    "setuptools (>=76.1.0,<90.0.0)",
+    "torchvision (>=0.23.0,<1.0.0)",
+    "torchaudio (>2.9.0,<3.0.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "optuna (>=4.7.0,<5.0.0)",
+    "optuna-dashboard (>=0.20.0,<0.21.0)",
+    "openpyxl (>=3.1.5,<4.0.0)",
+    "scikit-image (>=0.26.0,<0.27.0)"    
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff.lint]
+select = [
+    "E","W",   # pycodestyle
+    "F",   # Pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "I",   # isort
+    "PERF",# Perflint
+    "C4",  # Flake8 comprehensions
+    "RET", # Flake8 return
+    "FBT", # Flake8 boolean simplifications
+    "LOG", # Flake8 logging
+    "PL",  # Flake8 pylint
+    "B9",   # Bugbear addition;al checks
+    "TC",
+    "RUF",
+    "PT",
+    "FLY",
+    "NPY"
+]
+ignore= [
+    "PLR2004",
+    "PLR0915",
+    "PLR0913",
+    "PLR0912",
+    "PLR0911",
+    "F403",
+    "F405",
+    "E402",
+    "FBT003",
+    "RUF012",
+    "E501"
+]
+
+
+[tool.ruff]
+line-length = 150
+target-version = "py314"
+exclude = ["./utils/cfl.py", "steps/ROI/myImageViewer.py","steps/ROI/ROI.py","steps/Reco/bart9/*"]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+torchvision = {source = "pytorch"}
+torchaudio = {source = "pytorch"}
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu128"  # Replace with your CUDA version (cu118, cu121, etc.)
+priority = "explicit"
