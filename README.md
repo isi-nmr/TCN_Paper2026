@@ -148,7 +148,11 @@ To fully regenerate the paper outputs, a user needs:
 
 ## Paper Data
 
-Download the paper dataset from Zenodo and extract it into the project root as:
+Download the paper dataset from Zenodo:
+
+https://doi.org/10.5281/zenodo.21283064
+
+Extract it into the project root as:
 
 ```text
 paperData/
