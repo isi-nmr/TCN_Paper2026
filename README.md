@@ -31,7 +31,7 @@ poetry run python Figures_MeasuredVsTCN.py
 Important notes:
 
 - PyTorch wheels are configured from the CUDA 12.8 PyTorch index in `pyproject.toml`.
-- `Figures_BallExperiment.py` requires BART 1.0. If a `bart` command is available on `PATH`, the script uses that installation; otherwise it falls back to `/home/vitous/git_work/uipp/bart/bart10`.
+- `Figures_BallExperiment.py` requires BART 1.0, specifically the v1.0.00 release: https://codeberg.org/mrirecon/bart/releases/tag/v1.0.00. If a `bart` command is available on `PATH`, the script uses that installation.
 - Trained models are expected in `utils/gradModels/`.
 
 
@@ -143,7 +143,7 @@ To fully regenerate the paper outputs, a user needs:
 
 1. The Zenodo paper dataset extracted into `paperData/` in the project root.
 2. Trained checkpoints in `utils/gradModels/`, or the ability to retrain them with `trainTCNmodel.py`.
-3. BART installed and configured for `Figures_BallExperiment.py`.
+3. BART v1.0.00 installed and configured for `Figures_BallExperiment.py`: https://codeberg.org/mrirecon/bart/releases/tag/v1.0.00.
 4. The Python/Poetry environment from `pyproject.toml`.
 
 ## Paper Data
