@@ -87,8 +87,6 @@ from bart import bart
 """
 
 gCorr = GradientCorectorML()
-gCorrOriginal = GradientCorectorML(model_family="original")
-useOriginalTCN = gCorrOriginal.hasGradientModels()
 gCorrGIRF = GradientCorector("AV-NEO,BGA-12,AfterBrukerTuneup")
 
 studyFolder = str(PaperDataPath("radial_ball_phantom"))
@@ -101,7 +99,6 @@ imageTeoList = []
 imageGirfList = []
 imageB0List = []
 imageEstList = []
-imageOriginalTCNList = []
 imageEstB0List = []
 imageEstB0ModelList = []
 bwList = []
@@ -132,13 +129,6 @@ for scan in scans:
     traj[:, :, 2, :] = 0
     traj = np.transpose(traj[..., 0], (2, 0, 1))
     traj = traj[:, -digNp:, :]
-
-    if useOriginalTCN:
-        trajOriginal, _ = gCorrOriginal.generateCorrectionsRadialCS(methodFile, acqp)
-        trajOriginal = gCorrOriginal.convertTrajToBartScale(methodFile, trajOriginal, oversampling=2)
-        trajOriginal[:, :, 2, :] = 0
-        trajOriginal = np.transpose(trajOriginal[..., 0], (2, 0, 1))
-        trajOriginal = trajOriginal[:, -digNp:, :]
 
     trajGirf, bCorrGirf = gCorrGIRF.generateCorrectionsRadialCS(methodFile, acqp)
     trajGirf = gCorrGIRF.convertTrajToBartScale(methodFile, trajGirf, oversampling=4)
@@ -252,10 +242,6 @@ for scan in scans:
     cfl.writecfl(trajPath, traj[:, :, :, ...])
     imageEstTraj, maps = bart(2, bartCommand)
 
-    if useOriginalTCN:
-        cfl.writecfl(trajPath, trajOriginal[:, :, :, ...])
-        imageOriginalTCNTraj, maps = bart(2, bartCommand)
-
     cfl.writecfl(trajPath, traj[:, :, :, ...])
     cfl.writecfl(kspacePath, recoDataPhase[:, :, :, ...])
     imageEstTrajB0, maps = bart(2, bartCommand)
@@ -269,8 +255,6 @@ for scan in scans:
     imageGirfList.append(imageGirfTraj)
     imageB0List.append(imageMeasTrajB0)
     imageEstList.append(imageEstTraj)
-    if useOriginalTCN:
-        imageOriginalTCNList.append(imageOriginalTCNTraj)
     imageEstB0List.append(imageEstTrajB0)
     imageEstB0ModelList.append(imageEstTrajB0Model)
 
@@ -291,8 +275,6 @@ def formatBw(bwHz):
 
 nCols = len(imageList)
 rowLabels = ["Theoretical", "Measured", "GIRF Corrected", "Estimated"]
-if useOriginalTCN:
-    rowLabels.append("Original TCN")
 rowLabels.extend(["Estimated B0 Model"])
 nRows = len(rowLabels)
 
@@ -308,8 +290,6 @@ for c in range(nCols):
         np.abs(imageGirfList[c]),
         np.abs(imageEstList[c]),
     ]
-    if useOriginalTCN:
-        images.append(np.abs(imageOriginalTCNList[c]))
     images.extend([np.abs(imageEstB0ModelList[c])])
 
     for r in range(nRows):
@@ -358,8 +338,6 @@ from skimage.metrics import structural_similarity as ssim
 ref = np.abs(imageB0List[0])
 
 ssimResults = {"Theoretical": [], "Measured": [], "GIRF": [], "Estimated": [], "Estimated B0 Model": []}
-if useOriginalTCN:
-    ssimResults["Original TCN"] = []
 
 borderPixels = 10
 
@@ -380,10 +358,6 @@ for i in range(len(imageList)):
     _, ssimMap = ssim(ref, np.abs(imageEstList[i]), full=True, data_range=ref.max() - ref.min())
     ssimResults["Estimated"].append(np.median(ssimMap[mask]))
 
-    if useOriginalTCN:
-        _, ssimMap = ssim(ref, np.abs(imageOriginalTCNList[i]), full=True, data_range=ref.max() - ref.min())
-        ssimResults["Original TCN"].append(np.median(ssimMap[mask]))
-
     # _, ssim_map = ssim(ref, np.abs(imageEstB0List[i]), full=True, data_range=ref.max() - ref.min())
     # ssim_results["Estimated B0"].append(np.median(ssim_map[mask]))
 
@@ -400,8 +374,6 @@ def latexEscape(text):
 
 def writeSsimLatexTable(bwValuesKhz, results, outPath):
     methods = ["Theoretical", "Measured", "GIRF", "Estimated"]
-    if useOriginalTCN:
-        methods.append("Original TCN")
     methods.append("Estimated B0 Model")
 
     columnSpec = "r" + "r" * len(methods)
@@ -435,8 +407,6 @@ plt.plot(bwKhz, ssimResults["Theoretical"], marker="o", linestyle="--", linewidt
 plt.plot(bwKhz, ssimResults["Measured"], marker="s", linestyle="--", linewidth=1.5, label="Measured")
 plt.plot(bwKhz, ssimResults["GIRF"], marker="^", linestyle="-.", linewidth=1.5, label="GIRF")
 plt.plot(bwKhz, ssimResults["Estimated"], marker="d", linestyle=":", linewidth=1.5, label="Estimated")
-if useOriginalTCN:
-    plt.plot(bwKhz, ssimResults["Original TCN"], marker="x", linestyle=":", linewidth=1.5, label="Original TCN")
 plt.plot(bwKhz, ssimResults["Estimated B0 Model"], marker="v", linestyle="-", linewidth=1.5, label="Estimated B0 Model")
 
 plt.xlabel("Bandwidth (kHz)", fontsize=10)

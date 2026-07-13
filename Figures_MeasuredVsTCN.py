@@ -204,7 +204,7 @@ def loadAxisModel(axisSymbol):
     model = buildModel()
     skipStr = "_skip" if model.model_name == "TCNFullSkip" else "_"
     outPath = "utils/gradModels/grad" + axisSymbol + skipStr + f"_{model.num_channels}_{model.nLayers}_{model.kernel_size}"
-    checkpoint = torch.load(outPath)["model_state_dict"]
+    checkpoint = torch.load(outPath, map_location=device)["model_state_dict"]
 
     stateDict = {}
     for key, value in checkpoint.items():
@@ -342,7 +342,7 @@ def evaluateAxis(axisSymbol, gradAxisInd):
     model = loadAxisModel(axisSymbol)
 
     shapeSplitEnabled = len(testingShapeTypes) > 0
-    shapeKwargs = {"includeShapeTypes": testingShapeTypes} if shapeSplitEnabled else {}
+    shapeKwargs = {"includeShapeTypes": testingShapeTypes} if shapeSplitEnabled else {"excludeShapeTypes": testingShapeTypes}
 
     xData, yData, yTraj, maskData, labels = createTrainingSet(
         dataPaths,
