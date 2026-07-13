@@ -163,3 +163,9 @@ paperData/
   after_adjustments_response/
   radial_ball_phantom/
 ```
+
+## Acknowledgment
+
+This repository also contains code adapted from the original TCN gradient-system modeling work by Johnatan B. Martin and coauthors:
+
+J. B. Martin, H. E. Alderson, J. C. Gore, M. D. Does, and K. D. Harkins, "Modeling the MRI gradient system with a temporal convolutional network: Improved reconstruction by prediction of readout gradient errors," Magnetic Resonance in Medicine 95, no. 1 (2026): 286-298, https://doi.org/10.1002/mrm.70044.
