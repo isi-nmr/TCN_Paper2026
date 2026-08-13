@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import FuncFormatter
 import torch
 from torch.utils.data import random_split
 
@@ -155,6 +157,23 @@ def onlyValidSamples(y, valid):
     return out
 
 
+def formatTrajectoryAxis(axis, label):
+    """Show small trajectory values with an explicit publication-scale unit."""
+    scale = 1e-4
+    axis.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value / scale:g}"))
+    axis.yaxis.offsetText.set_visible(False)
+    axis.set_ylabel(f"{label} (a.u.)", fontsize=11)
+    axis.text(
+        0.01,
+        0.96,
+        r"$\times 10^{-4}$",
+        transform=axis.transAxes,
+        ha="left",
+        va="top",
+        fontsize=9,
+    )
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 fullConfig = load_config()
@@ -180,11 +199,13 @@ testingAmplitudePerShape = True
 
 lineColors = {
     "Measured": "black",
-    "Theory": "steelblue",
+    "Nominal": "steelblue",
     "GIRF corrected": "darkorange",
     "TCN corrected": "seagreen",
 }
-correctionMethods = ("Theory", "GIRF corrected", "TCN corrected")
+correctionMethods = ("Nominal", "GIRF corrected", "TCN corrected")
+supplementPath = "./paper2026/Sup_4.pdf"
+supplementPdf = PdfPages(supplementPath)
 
 from utils.GradientCorrector import GradientCorector
 
@@ -380,18 +401,22 @@ def evaluateAxis(axisSymbol, gradAxisInd):
         f"Axis {axisSymbol}: using {statsIndices.size} held-out curves for statistics after filters: "
         f"shapes={shapeSummary}, amplitude_min_magnitude={testingAmplitudeMinMagnitude}"
     )
-    plotIndices = filterTestingExamples(
-        statsIndices,
+    # Figure selection uses the full validation pool rather than the statistics
+    # amplitude threshold, so waveform families with lower designed amplitudes
+    # (notably ARCH_SPIRAL) remain eligible for the supplement.
+    plotSourceIndices = filterTestingExamples(
+        testIndices,
         xData,
         labels,
         amplitudeFraction=testingAmplitudeFraction,
         amplitudePerShape=testingAmplitudePerShape,
     )
+    statsIndices = np.unique(np.concatenate((statsIndices, plotSourceIndices)))
     print(
-        f"Axis {axisSymbol}: plotting {plotIndices.size} held-out curves after near/max-amplitude filter: "
+        f"Axis {axisSymbol}: plotting {plotSourceIndices.size} held-out curves after near/max-amplitude filter: "
         f"amplitude_fraction={testingAmplitudeFraction}, per_shape={testingAmplitudePerShape}"
     )
-    plotIndices = np.nonzero(np.isin(statsIndices, plotIndices))[0]
+    plotIndices = np.nonzero(np.isin(statsIndices, plotSourceIndices))[0]
 
     xData = xData[statsIndices]
     yData = yData[statsIndices]
@@ -429,12 +454,12 @@ def evaluateAxis(axisSymbol, gradAxisInd):
 
     validMask = (maskData > 0).astype(np.float32)
     trajectoryPredictions = {
-        "Theory": theoryTraj,
+        "Nominal": theoryTraj,
         "GIRF corrected": girfTraj,
         "TCN corrected": tcnTraj,
     }
     gradientPredictions = {
-        "Theory": theoryGradAligned,
+        "Nominal": theoryGradAligned,
         "GIRF corrected": girfPred,
         "TCN corrected": yPred,
     }
@@ -474,14 +499,18 @@ def evaluateAxis(axisSymbol, gradAxisInd):
                 )
 
     perCurveTcnRmse = np.asarray([maskedRmse(tcnTraj[[ind]], yTraj[[ind]], validMask[[ind]]) for ind in range(maskData.shape[0])])
-    exampleCount = min(25, plotIndices.size)
-    if exampleCount > 0:
-        finiteOrder = plotIndices[np.argsort(np.nan_to_num(perCurveTcnRmse[plotIndices], nan=np.inf))]
-        quantilePositions = np.linspace(0, finiteOrder.size - 1, exampleCount).round().astype(int)
-        exampleIndices = finiteOrder[quantilePositions]
+    if axisSymbol == "X" and plotIndices.size > 0:
+        # Select one representative (median-error) example for every available
+        # waveform family. This yields a compact, reproducible supplement rather
+        # than a large set of arbitrarily sampled curves.
+        exampleIndices = []
+        for shapeName in sorted(set(labels[ind] for ind in plotIndices)):
+            candidates = plotIndices[np.asarray([labels[ind] == shapeName for ind in plotIndices])]
+            ordered = candidates[np.argsort(np.nan_to_num(perCurveTcnRmse[candidates], nan=np.inf))]
+            exampleIndices.append(int(ordered[len(ordered) // 2]))
 
         for plotInd, curveInd in enumerate(exampleIndices):
-            fig, ax = plt.subplots(4, 1, figsize=(8, 7.2), sharex=True)
+            fig, ax = plt.subplots(4, 1, figsize=(7.2, 8.4), sharex=True)
             curveValid = maskData[curveInd, 0, :] > 0
             measured = onlyValidSamples(1e2 * yData[curveInd, 0, :] * xData[curveInd, 1, 0], curveValid)
             theoryGrad = onlyValidSamples(1e2 * theoryGradAligned[curveInd, 0, :] * xData[curveInd, 1, 0], curveValid)
@@ -498,36 +527,38 @@ def evaluateAxis(axisSymbol, gradAxisInd):
             girfTrajErr = girfCurveTraj - measuredTraj
             tcnTrajErr = tcnCurveTraj - measuredTraj
 
-            ax[0].plot(t, theoryGrad, color=lineColors["Theory"], label="Theory")
+            ax[0].plot(t, theoryGrad, color=lineColors["Nominal"], label="Nominal")
             ax[0].plot(t, measured, color=lineColors["Measured"], label="Measured")
             ax[0].plot(t, girfGrad, color=lineColors["GIRF corrected"], label="GIRF corrected")
             ax[0].plot(t, tcnGrad, color=lineColors["TCN corrected"], label="TCN corrected")
-            ax[0].set_ylabel(f"G{axisSymbol} (%)")
-            ax[0].legend(loc="best")
+            ax[0].set_ylabel(f"G{axisSymbol} (%)", fontsize=11)
+            ax[0].legend(loc="upper center", bbox_to_anchor=(0.5, 1.34), ncol=4, frameon=False, fontsize=9)
 
-            ax[1].plot(t, theoryGradErr, color=lineColors["Theory"], label="Theory")
+            ax[1].plot(t, theoryGradErr, color=lineColors["Nominal"], label="Nominal")
             ax[1].plot(t, girfGradErr, color=lineColors["GIRF corrected"], label="GIRF corrected")
             ax[1].plot(t, tcnGradErr, color=lineColors["TCN corrected"], label="TCN corrected")
-            ax[1].set_ylabel("Grad Err (%)")
+            ax[1].set_ylabel("Gradient error (%)", fontsize=11)
             ax[1].axhline(0, linewidth=1)
 
             ax[2].plot(t, measuredTraj, color=lineColors["Measured"], label="Measured")
-            ax[2].plot(t, theoryCurveTraj, color=lineColors["Theory"], label="Theory")
+            ax[2].plot(t, theoryCurveTraj, color=lineColors["Nominal"], label="Nominal")
             ax[2].plot(t, girfCurveTraj, color=lineColors["GIRF corrected"], label="GIRF corrected")
             ax[2].plot(t, tcnCurveTraj, color=lineColors["TCN corrected"], label="TCN corrected")
-            ax[2].set_ylabel("Trajectory (-)")
+            formatTrajectoryAxis(ax[2], "Trajectory")
 
-            ax[3].plot(t, theoryTrajErr, color=lineColors["Theory"], label="Theory")
+            ax[3].plot(t, theoryTrajErr, color=lineColors["Nominal"], label="Nominal")
             ax[3].plot(t, girfTrajErr, color=lineColors["GIRF corrected"], label="GIRF corrected")
             ax[3].plot(t, tcnTrajErr, color=lineColors["TCN corrected"], label="TCN corrected")
-            ax[3].set_xlabel("t (ms)")
-            ax[3].set_ylabel("Traj Err (-)")
+            ax[3].set_xlabel("Time (ms)", fontsize=11)
+            formatTrajectoryAxis(ax[3], "Trajectory error")
             ax[3].axhline(0, linewidth=1)
 
             nonZeroIndices = np.flatnonzero(((xData[curveInd, 0, :] * xData[curveInd, 1, 0]) != 0) & curveValid)
             if nonZeroIndices.size > 0:
-                firstInd = 300
-                lastInd = min(firstInd + 500, xData.shape[-1] - 1)
+                # Anchor the viewport to the actual waveform onset and retain a
+                # small amount of baseline, avoiding the former fixed t=0 crop.
+                firstInd = max(0, int(nonZeroIndices[0]) - 20)
+                lastInd = min(firstInd + 650, int(nonZeroIndices[-1]) + 1, xData.shape[-1] - 1)
                 xMin = firstInd * torchRes * 1e3
                 xMax = lastInd * torchRes * 1e3
             else:
@@ -560,16 +591,23 @@ def evaluateAxis(axisSymbol, gradAxisInd):
                 symmetric=True,
             )
 
-            fig.suptitle(f"{axisSymbol} {labels[curveInd]} validation example {plotInd + 1}")
-            fig.tight_layout()
-            fig.savefig(f"images/testingTrajectory_{axisSymbol}_{labels[curveInd]}_{curveInd}.png", dpi=600)
+            for subplot in ax:
+                subplot.grid(True, linestyle="--", linewidth=0.7, alpha=0.35)
+                subplot.tick_params(labelsize=10)
+
+            fig.suptitle(f"{labels[curveInd].replace('_', ' ')} waveform — {axisSymbol} axis", fontsize=14, y=0.985)
+            fig.subplots_adjust(left=0.15, right=0.98, bottom=0.08, top=0.90, hspace=0.18)
+            outputStem = f"images/testingTrajectory_{axisSymbol}_{labels[curveInd]}"
+            fig.savefig(f"{outputStem}.pdf", bbox_inches="tight")
+            fig.savefig(f"{outputStem}.png", bbox_inches="tight", dpi=600)
+            supplementPdf.savefig(fig, bbox_inches="tight")
             plt.close(fig)
 
-        summaryCurve = exampleIndices[exampleCount // 2]
+        summaryCurve = exampleIndices[len(exampleIndices) // 2]
         summaryValid = maskData[summaryCurve, 0, :] > 0
         fig, ax = plt.subplots(figsize=(7, 3))
         ax.plot(t, onlyValidSamples(yTraj[summaryCurve, 0, :], summaryValid), color=lineColors["Measured"], label="Measured")
-        ax.plot(t, onlyValidSamples(theoryTraj[summaryCurve, 0, :], summaryValid), color=lineColors["Theory"], label="Theory")
+        ax.plot(t, onlyValidSamples(theoryTraj[summaryCurve, 0, :], summaryValid), color=lineColors["Nominal"], label="Nominal")
         ax.plot(t, onlyValidSamples(girfTraj[summaryCurve, 0, :], summaryValid), color=lineColors["GIRF corrected"], label="GIRF corrected")
         ax.plot(t, onlyValidSamples(tcnTraj[summaryCurve, 0, :], summaryValid), color=lineColors["TCN corrected"], label="TCN corrected")
         ax.set_xlabel("t (ms)")
@@ -595,6 +633,9 @@ for axisSymbol in ["X", "Y", "Z"]:
     metricRows.extend(axisMetricRows)
     distributionRows.extend(axisDistributionRows)
     residualRows.extend(axisResidualRows)
+
+supplementPdf.close()
+print(f"Supplementary waveform PDF written to {supplementPath}")
 
 with open("./paper2026/trajectoryRMSE_testing.csv", "w") as rmseFile:
     rmseFile.write("axis,method,trajectory_rmse,trajectory_nmrse,n_testing_curves\n")

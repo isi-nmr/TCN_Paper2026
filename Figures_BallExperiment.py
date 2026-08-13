@@ -274,19 +274,25 @@ def formatBw(bwHz):
 
 
 nCols = len(imageList)
-rowLabels = ["Theoretical", "Measured", "GIRF Corrected", "Estimated"]
-rowLabels.extend(["Estimated B0 Model"])
+rowLabels = ["Measured", "Nominal", "GIRF\nCorrected", "Estimated"]
+rowLabels.extend(["Estimated\nB0 Model"])
 nRows = len(rowLabels)
 
 imageAspect = np.abs(imageTeoList[0]).shape[0] / np.abs(imageTeoList[0]).shape[1]
 cellWidth = 2.2
-fig = plt.figure(figsize=(cellWidth * nCols, cellWidth * imageAspect * nRows + 0.35), facecolor="black")
+labelFontSize = 19
+titleFontSize = 19
+
+fig = plt.figure(
+    figsize=(cellWidth * nCols, cellWidth * imageAspect * nRows * (0.915 / 0.93)),
+    facecolor="black",
+)
 gs = GridSpec(nRows, nCols, figure=fig, wspace=0, hspace=0)
 
 for c in range(nCols):
     images = [
-        np.abs(imageTeoList[c]),
         np.abs(imageList[c]),
+        np.abs(imageTeoList[c]),
         np.abs(imageGirfList[c]),
         np.abs(imageEstList[c]),
     ]
@@ -311,13 +317,13 @@ for c in range(nCols):
         ax.set_frame_on(False)
 
         if r == 0:
-            ax.set_title(formatBw(bwList[c]), fontsize=12, pad=4, color="white")
+            ax.set_title(formatBw(bwList[c]), fontsize=titleFontSize, pad=7, color="white")
 
         if c == 0:
-            ax.set_ylabel(rowLabels[r], fontsize=12, labelpad=25, color="white")
+            ax.set_ylabel(rowLabels[r], fontsize=labelFontSize, labelpad=30, color="white")
 
 plt.subplots_adjust(
-    left=0.05,
+    left=0.085,
     right=1,
     bottom=0,
     top=0.93,
@@ -329,6 +335,148 @@ fig.savefig("paper2026/BallGrid.png", dpi=600, facecolor="black")
 fig.savefig("paper2026/BallGrid.pdf", facecolor="black")
 
 plt.clf()
+
+# Full-dynamic-range companion to the intentionally saturated BallGrid.
+notSaturatedFig = plt.figure(
+    figsize=(cellWidth * nCols, cellWidth * imageAspect * nRows * (0.915 / 0.93)),
+    facecolor="black",
+)
+notSaturatedGs = GridSpec(nRows, nCols, figure=notSaturatedFig, wspace=0, hspace=0)
+
+for c in range(nCols):
+    images = [
+        np.abs(imageList[c]),
+        np.abs(imageTeoList[c]),
+        np.abs(imageGirfList[c]),
+        np.abs(imageEstList[c]),
+        np.abs(imageEstB0ModelList[c]),
+    ]
+
+    for r in range(nRows):
+        ax = notSaturatedFig.add_subplot(notSaturatedGs[r, c])
+        ax.set_facecolor("black")
+        ax.imshow(
+            images[r],
+            cmap="gray",
+            interpolation="nearest",
+            aspect="equal",
+            vmin=0,
+            vmax=np.max(images[r]),
+        )
+        ax.set_box_aspect(images[r].shape[0] / images[r].shape[1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_frame_on(False)
+
+        if r == 0:
+            ax.set_title(formatBw(bwList[c]), fontsize=titleFontSize, pad=7, color="white")
+
+        if c == 0:
+            ax.set_ylabel(rowLabels[r], fontsize=labelFontSize, labelpad=30, color="white")
+
+notSaturatedFig.subplots_adjust(left=0.085, right=1, bottom=0, top=0.93)
+notSaturatedFig.savefig("paper2026/BallGridNotSaturated.png", dpi=600, facecolor="black")
+notSaturatedFig.savefig("paper2026/BallGridNotSaturated.pdf", facecolor="black")
+
+plt.clf()
+
+"""
+Difference maps
+
+Magnitude images are independently peak-normalized before subtraction so that
+the maps emphasize spatial reconstruction errors rather than arbitrary global
+intensity scaling.  The measured-trajectory reconstruction with B0 correction
+at 400 kHz is used as the reference for every bandwidth, and one common
+symmetric scale is used for every panel.
+"""
+
+
+def peakNormalize(image):
+    magnitude = np.abs(np.squeeze(image))
+    peak = np.max(magnitude)
+    return magnitude / peak if peak > 0 else magnitude
+
+
+differenceRowLabels = [
+    "Measured",
+    "Nominal",
+    "GIRF\nCorrected",
+    "Estimated",
+    "Estimated\nB0 Model",
+]
+differenceMaps = []
+reference = peakNormalize(imageB0List[0])
+for c in range(nCols):
+    comparisonImages = [
+        imageList[c],
+        imageTeoList[c],
+        imageGirfList[c],
+        imageEstList[c],
+        imageEstB0ModelList[c],
+    ]
+    differenceMaps.append([peakNormalize(image) - reference for image in comparisonImages])
+
+# Deliberately saturate the strongest residuals so low-level structure remains
+# visible in the better-performing correction methods.
+allDifferences = np.concatenate([np.ravel(difference) for column in differenceMaps for difference in column])
+differenceLimit = np.percentile(np.abs(allDifferences), 95.0)
+if differenceLimit == 0:
+    differenceLimit = 1.0
+
+differenceRows = len(differenceRowLabels)
+differenceFig = plt.figure(
+    figsize=(cellWidth * nCols, cellWidth * imageAspect * differenceRows * (0.84 / 0.90)),
+    facecolor="white",
+)
+differenceGs = GridSpec(differenceRows, nCols, figure=differenceFig, wspace=0, hspace=0)
+
+lastDifferenceImage = None
+for c in range(nCols):
+    for r in range(differenceRows):
+        ax = differenceFig.add_subplot(differenceGs[r, c])
+        difference = differenceMaps[c][r]
+        if c == 0 and r == 0:
+            ax.set_facecolor("white")
+            ax.text(
+                0.5,
+                0.5,
+                "Reference",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+                fontsize=labelFontSize,
+                color="black",
+            )
+        else:
+            lastDifferenceImage = ax.imshow(
+                difference,
+                cmap="RdBu_r",
+                interpolation="nearest",
+                aspect="equal",
+                vmin=-differenceLimit,
+                vmax=differenceLimit,
+            )
+        ax.set_box_aspect(difference.shape[0] / difference.shape[1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_frame_on(False)
+
+        if r == 0:
+            ax.set_title(formatBw(bwList[c]), fontsize=titleFontSize, pad=7)
+
+        if c == 0:
+            ax.set_ylabel(differenceRowLabels[r], fontsize=labelFontSize, labelpad=30)
+
+differenceFig.subplots_adjust(left=0.085, right=0.925, bottom=0.04, top=0.94)
+colorbarAxis = differenceFig.add_axes([0.94, 0.04, 0.012, 0.90])
+colorbar = differenceFig.colorbar(lastDifferenceImage, cax=colorbarAxis)
+colorbar.ax.tick_params(labelsize=14)
+colorbar.ax.yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
+
+differenceFig.savefig("paper2026/BallGridSubtraction.png", dpi=600, facecolor="white")
+differenceFig.savefig("paper2026/BallGridSubtraction.pdf", facecolor="white")
+
+plt.clf()
 """
 SSIM
 """
@@ -337,7 +485,7 @@ from skimage.metrics import structural_similarity as ssim
 
 ref = np.abs(imageB0List[0])
 
-ssimResults = {"Theoretical": [], "Measured": [], "GIRF": [], "Estimated": [], "Estimated B0 Model": []}
+ssimResults = {"Nominal": [], "Measured": [], "GIRF": [], "Estimated": [], "Estimated B0 Model": []}
 
 borderPixels = 10
 
@@ -347,7 +495,7 @@ mask[borderPixels:-borderPixels, borderPixels:-borderPixels] = True
 
 for i in range(len(imageList)):
     _, ssimMap = ssim(ref, np.abs(imageTeoList[i]), full=True, data_range=ref.max() - ref.min())
-    ssimResults["Theoretical"].append(np.median(ssimMap[mask]))
+    ssimResults["Nominal"].append(np.median(ssimMap[mask]))
 
     _, ssimMap = ssim(ref, np.abs(imageList[i]), full=True, data_range=ref.max() - ref.min())
     ssimResults["Measured"].append(np.median(ssimMap[mask]))
@@ -367,13 +515,12 @@ for i in range(len(imageList)):
 
 bwKhz = np.array(bwList) * 1e-3
 
-
 def latexEscape(text):
     return text.replace("_", r"\_")
 
 
 def writeSsimLatexTable(bwValuesKhz, results, outPath):
-    methods = ["Theoretical", "Measured", "GIRF", "Estimated"]
+    methods = ["Nominal", "Measured", "GIRF", "Estimated"]
     methods.append("Estimated B0 Model")
 
     columnSpec = "r" + "r" * len(methods)
@@ -403,11 +550,19 @@ print(f"LaTeX SSIM table written to paper2026/BallSSIMTable.tex\n{ssimTable}")
 
 fig = plt.figure(figsize=(6, 4))
 
-plt.plot(bwKhz, ssimResults["Theoretical"], marker="o", linestyle="--", linewidth=1.5, label="Theoretical")
-plt.plot(bwKhz, ssimResults["Measured"], marker="s", linestyle="--", linewidth=1.5, label="Measured")
+# The measured 400 kHz acquisition supplies the reference; omit only its marker.
+plt.plot(bwKhz[1:], ssimResults["Measured"][1:], marker="s", linestyle="--", linewidth=1.5, label="Measured")
+plt.plot(bwKhz, ssimResults["Nominal"], marker="o", linestyle="--", linewidth=1.5, label="Nominal")
 plt.plot(bwKhz, ssimResults["GIRF"], marker="^", linestyle="-.", linewidth=1.5, label="GIRF")
 plt.plot(bwKhz, ssimResults["Estimated"], marker="d", linestyle=":", linewidth=1.5, label="Estimated")
-plt.plot(bwKhz, ssimResults["Estimated B0 Model"], marker="v", linestyle="-", linewidth=1.5, label="Estimated B0 Model")
+plt.plot(
+    bwKhz,
+    ssimResults["Estimated B0 Model"],
+    marker="v",
+    linestyle="-",
+    linewidth=1.5,
+    label="Estimated B0 Model",
+)
 
 plt.xlabel("Bandwidth (kHz)", fontsize=10)
 plt.ylabel("SSIM", fontsize=10)
