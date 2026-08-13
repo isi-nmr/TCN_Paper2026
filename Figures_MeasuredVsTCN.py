@@ -647,5 +647,5 @@ with open("./paper2026/waveformNRMSE_testing_curves.csv", "w") as nrmseFile:
     for row in distributionRows:
         nrmseFile.write(f"{row['axis']},{row['waveform']},{row['method']},{row['curve_index']},{row['shape']},{row['nrmse']:.8e}\n")
 
-plotCombinedNrmseBoxplots(distributionRows, "waveformNRMSE_boxplots")
+plotCombinedNrmseBoxplots(distributionRows, "Sup_2")
 plotTrajectoryResidualHistograms(residualRows, "trajectoryResidualHistograms")
