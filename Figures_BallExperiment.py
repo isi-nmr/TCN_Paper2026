@@ -90,9 +90,17 @@ gCorr = GradientCorectorML()
 gCorrGIRF = GradientCorector("AV-NEO,BGA-12,AfterBrukerTuneup")
 
 studyFolder = str(PaperDataPath("radial_ball_phantom"))
+referenceStudyFolder = Path(
+    os.environ.get(
+        "BALL_REFERENCE_STUDY",
+        "/mnt/md1/nmr-bruker/PV-360.3.7/vitous/20260817_091028_Test_ballTraj_1_2",
+    )
+)
 
 
 scans = [17, 18, 19, 20, 21, 22, 23]
+# Scan 11 is the later, complete all-spoke 400 kHz trajectory acquisition.
+referenceScan = 11
 
 imageList = []
 imageTeoList = []
@@ -101,6 +109,8 @@ imageB0List = []
 imageEstList = []
 imageEstB0List = []
 imageEstB0ModelList = []
+referenceImageList = []
+referenceImage = None
 bwList = []
 
 for scan in scans:
@@ -223,6 +233,37 @@ for scan in scans:
     bartCommand += f" -t {trajPath}"
     bartCommand += f" {kspacePath}"
 
+    if referenceImage is None:
+        # Reconstruct the sole reference from the 400 kHz ball data and the
+        # later 400 kHz acquisition containing one measured trajectory per
+        # spoke in its Bruker binary trajectory file.
+        referencePath = referenceStudyFolder / str(referenceScan)
+        referenceKx, referenceKy, _ = ReadTraj(referencePath / "traj", 2, digNp)
+        nReferenceSpokes = referenceKx.shape[1]
+        if fid.shape[2] != nReferenceSpokes:
+            raise ValueError(
+                f"400 kHz ball scan contains {fid.shape[2]} raw-data spokes "
+                f"but reference scan {referenceScan} contains "
+                f"{nReferenceSpokes} measured trajectories"
+            )
+
+        referenceTraj = np.stack((referenceKx, referenceKy), axis=0)
+        referenceTraj = np.concatenate(
+            (referenceTraj, np.zeros((1, digNp, nReferenceSpokes))), axis=0
+        )
+        measuredKMax = np.max(np.abs(referenceTraj[:2]))
+        if measuredKMax == 0:
+            raise ValueError(f"Reference scan {referenceScan} has an empty measured trajectory")
+        # Use the same final scaling as the original linear-combination
+        # trajectory below: preserve the measured shape and normalize its
+        # global in-plane extent to the reconstructed ML trajectory extent.
+        referenceTraj[:2] *= np.max(np.abs(traj)) / measuredKMax
+
+        cfl.writecfl(kspacePath, recoDataPhase)
+        cfl.writecfl(trajPath, referenceTraj)
+        referenceImage, maps = bart(2, bartCommand)
+    referenceImageList.append(referenceImage)
+
     cfl.writecfl(kspacePath, recoData[:, :, :, ...])
     cfl.writecfl(trajPath, trajTeo[:, :, :, ...])
     imageTeoTraj, maps = bart(2, bartCommand)
@@ -274,7 +315,7 @@ def formatBw(bwHz):
 
 
 nCols = len(imageList)
-rowLabels = ["Measured", "Nominal", "GIRF\nCorrected", "Estimated"]
+rowLabels = ["Reference", "Linear\nCombination", "Nominal", "GIRF\nCorrected", "Estimated"]
 rowLabels.extend(["Estimated\nB0 Model"])
 nRows = len(rowLabels)
 
@@ -291,6 +332,7 @@ gs = GridSpec(nRows, nCols, figure=fig, wspace=0, hspace=0)
 
 for c in range(nCols):
     images = [
+        np.abs(referenceImageList[c]),
         np.abs(imageList[c]),
         np.abs(imageTeoList[c]),
         np.abs(imageGirfList[c]),
@@ -302,14 +344,15 @@ for c in range(nCols):
         ax = fig.add_subplot(gs[r, c])
         ax.set_facecolor("black")
 
-        ax.imshow(
-            images[r],
-            cmap="gray",
-            interpolation="nearest",
-            aspect="equal",
-            vmin=0,
-            vmax=0.3 * np.max(images[r]),
-        )
+        if r != 0 or c == 0:
+            ax.imshow(
+                images[r],
+                cmap="gray",
+                interpolation="nearest",
+                aspect="equal",
+                vmin=0,
+                vmax=0.3 * np.max(images[r]),
+            )
         ax.set_box_aspect(images[r].shape[0] / images[r].shape[1])
 
         ax.set_xticks([])
@@ -345,6 +388,7 @@ notSaturatedGs = GridSpec(nRows, nCols, figure=notSaturatedFig, wspace=0, hspace
 
 for c in range(nCols):
     images = [
+        np.abs(referenceImageList[c]),
         np.abs(imageList[c]),
         np.abs(imageTeoList[c]),
         np.abs(imageGirfList[c]),
@@ -355,14 +399,15 @@ for c in range(nCols):
     for r in range(nRows):
         ax = notSaturatedFig.add_subplot(notSaturatedGs[r, c])
         ax.set_facecolor("black")
-        ax.imshow(
-            images[r],
-            cmap="gray",
-            interpolation="nearest",
-            aspect="equal",
-            vmin=0,
-            vmax=np.max(images[r]),
-        )
+        if r != 0 or c == 0:
+            ax.imshow(
+                images[r],
+                cmap="gray",
+                interpolation="nearest",
+                aspect="equal",
+                vmin=0,
+                vmax=np.max(images[r]),
+            )
         ax.set_box_aspect(images[r].shape[0] / images[r].shape[1])
         ax.set_xticks([])
         ax.set_yticks([])
@@ -385,9 +430,9 @@ Difference maps
 
 Magnitude images are independently peak-normalized before subtraction so that
 the maps emphasize spatial reconstruction errors rather than arbitrary global
-intensity scaling.  The measured-trajectory reconstruction with B0 correction
-at 400 kHz is used as the reference for every bandwidth, and one common
-symmetric scale is used for every panel.
+intensity scaling. Every bandwidth is compared with the 400 kHz all-spoke
+measured-trajectory reference, and one common symmetric scale is used for every
+panel.
 """
 
 
@@ -398,15 +443,15 @@ def peakNormalize(image):
 
 
 differenceRowLabels = [
-    "Measured",
+    "Linear\nCombination",
     "Nominal",
     "GIRF\nCorrected",
     "Estimated",
     "Estimated\nB0 Model",
 ]
 differenceMaps = []
-reference = peakNormalize(imageB0List[0])
 for c in range(nCols):
+    reference = peakNormalize(referenceImageList[c])
     comparisonImages = [
         imageList[c],
         imageTeoList[c],
@@ -435,27 +480,14 @@ for c in range(nCols):
     for r in range(differenceRows):
         ax = differenceFig.add_subplot(differenceGs[r, c])
         difference = differenceMaps[c][r]
-        if c == 0 and r == 0:
-            ax.set_facecolor("white")
-            ax.text(
-                0.5,
-                0.5,
-                "Reference",
-                transform=ax.transAxes,
-                ha="center",
-                va="center",
-                fontsize=labelFontSize,
-                color="black",
-            )
-        else:
-            lastDifferenceImage = ax.imshow(
-                difference,
-                cmap="RdBu_r",
-                interpolation="nearest",
-                aspect="equal",
-                vmin=-differenceLimit,
-                vmax=differenceLimit,
-            )
+        lastDifferenceImage = ax.imshow(
+            difference,
+            cmap="RdBu_r",
+            interpolation="nearest",
+            aspect="equal",
+            vmin=-differenceLimit,
+            vmax=differenceLimit,
+        )
         ax.set_box_aspect(difference.shape[0] / difference.shape[1])
         ax.set_xticks([])
         ax.set_yticks([])
@@ -483,33 +515,31 @@ SSIM
 
 from skimage.metrics import structural_similarity as ssim
 
-ref = np.abs(imageB0List[0])
-
-ssimResults = {"Nominal": [], "Measured": [], "GIRF": [], "Estimated": [], "Estimated B0 Model": []}
+ssimResults = {"Nominal": [], "Linear Combination": [], "GIRF": [], "Estimated": [], "Estimated B0 Model": []}
 
 borderPixels = 10
 
-# create frame mask
-mask = np.zeros_like(ref, dtype=bool)
-mask[borderPixels:-borderPixels, borderPixels:-borderPixels] = True
-
 for i in range(len(imageList)):
-    _, ssimMap = ssim(ref, np.abs(imageTeoList[i]), full=True, data_range=ref.max() - ref.min())
+    ref = peakNormalize(referenceImageList[i])
+    mask = np.zeros_like(ref, dtype=bool)
+    mask[borderPixels:-borderPixels, borderPixels:-borderPixels] = True
+
+    _, ssimMap = ssim(ref, peakNormalize(imageTeoList[i]), full=True, data_range=1.0)
     ssimResults["Nominal"].append(np.median(ssimMap[mask]))
 
-    _, ssimMap = ssim(ref, np.abs(imageList[i]), full=True, data_range=ref.max() - ref.min())
-    ssimResults["Measured"].append(np.median(ssimMap[mask]))
+    _, ssimMap = ssim(ref, peakNormalize(imageList[i]), full=True, data_range=1.0)
+    ssimResults["Linear Combination"].append(np.median(ssimMap[mask]))
 
-    _, ssimMap = ssim(ref, np.abs(imageGirfList[i]), full=True, data_range=ref.max() - ref.min())
+    _, ssimMap = ssim(ref, peakNormalize(imageGirfList[i]), full=True, data_range=1.0)
     ssimResults["GIRF"].append(np.median(ssimMap[mask]))
 
-    _, ssimMap = ssim(ref, np.abs(imageEstList[i]), full=True, data_range=ref.max() - ref.min())
+    _, ssimMap = ssim(ref, peakNormalize(imageEstList[i]), full=True, data_range=1.0)
     ssimResults["Estimated"].append(np.median(ssimMap[mask]))
 
     # _, ssim_map = ssim(ref, np.abs(imageEstB0List[i]), full=True, data_range=ref.max() - ref.min())
     # ssim_results["Estimated B0"].append(np.median(ssim_map[mask]))
 
-    _, ssimMap = ssim(ref, np.abs(imageEstB0ModelList[i]), full=True, data_range=ref.max() - ref.min())
+    _, ssimMap = ssim(ref, peakNormalize(imageEstB0ModelList[i]), full=True, data_range=1.0)
     ssimResults["Estimated B0 Model"].append(np.median(ssimMap[mask]))
 
 
@@ -520,7 +550,7 @@ def latexEscape(text):
 
 
 def writeSsimLatexTable(bwValuesKhz, results, outPath):
-    methods = ["Nominal", "Measured", "GIRF", "Estimated"]
+    methods = ["Nominal", "Linear Combination", "GIRF", "Estimated"]
     methods.append("Estimated B0 Model")
 
     columnSpec = "r" + "r" * len(methods)
@@ -550,8 +580,7 @@ print(f"LaTeX SSIM table written to paper2026/BallSSIMTable.tex\n{ssimTable}")
 
 fig = plt.figure(figsize=(6, 4))
 
-# The measured 400 kHz acquisition supplies the reference; omit only its marker.
-plt.plot(bwKhz[1:], ssimResults["Measured"][1:], marker="s", linestyle="--", linewidth=1.5, label="Measured")
+plt.plot(bwKhz, ssimResults["Linear Combination"], marker="s", linestyle="--", linewidth=1.5, label="LinearCombination")
 plt.plot(bwKhz, ssimResults["Nominal"], marker="o", linestyle="--", linewidth=1.5, label="Nominal")
 plt.plot(bwKhz, ssimResults["GIRF"], marker="^", linestyle="-.", linewidth=1.5, label="GIRF")
 plt.plot(bwKhz, ssimResults["Estimated"], marker="d", linestyle=":", linewidth=1.5, label="Estimated")
