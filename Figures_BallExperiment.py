@@ -315,7 +315,7 @@ def formatBw(bwHz):
 
 
 nCols = len(imageList)
-rowLabels = ["Reference", "Linear\nCombination", "Nominal", "GIRF\nCorrected", "Estimated"]
+rowLabels = ["Reference", "Nominal", "Linear\nCombination", "GIRF\nCorrected", "Estimated"]
 rowLabels.extend(["Estimated\nB0 Model"])
 nRows = len(rowLabels)
 
@@ -333,8 +333,8 @@ gs = GridSpec(nRows, nCols, figure=fig, wspace=0, hspace=0)
 for c in range(nCols):
     images = [
         np.abs(referenceImageList[c]),
-        np.abs(imageList[c]),
         np.abs(imageTeoList[c]),
+        np.abs(imageList[c]),
         np.abs(imageGirfList[c]),
         np.abs(imageEstList[c]),
     ]
@@ -389,8 +389,8 @@ notSaturatedGs = GridSpec(nRows, nCols, figure=notSaturatedFig, wspace=0, hspace
 for c in range(nCols):
     images = [
         np.abs(referenceImageList[c]),
-        np.abs(imageList[c]),
         np.abs(imageTeoList[c]),
+        np.abs(imageList[c]),
         np.abs(imageGirfList[c]),
         np.abs(imageEstList[c]),
         np.abs(imageEstB0ModelList[c]),
@@ -443,8 +443,8 @@ def peakNormalize(image):
 
 
 differenceRowLabels = [
-    "Linear\nCombination",
     "Nominal",
+    "Linear\nCombination",
     "GIRF\nCorrected",
     "Estimated",
     "Estimated\nB0 Model",
@@ -453,8 +453,8 @@ differenceMaps = []
 for c in range(nCols):
     reference = peakNormalize(referenceImageList[c])
     comparisonImages = [
-        imageList[c],
         imageTeoList[c],
+        imageList[c],
         imageGirfList[c],
         imageEstList[c],
         imageEstB0ModelList[c],
