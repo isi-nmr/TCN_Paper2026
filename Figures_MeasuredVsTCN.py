@@ -158,11 +158,11 @@ def onlyValidSamples(y, valid):
 
 
 def formatTrajectoryAxis(axis, label):
-    """Show small trajectory values with an explicit publication-scale unit."""
+    """Show normalized-gradient integrals in seconds at a readable scale."""
     scale = 1e-4
     axis.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value / scale:g}"))
     axis.yaxis.offsetText.set_visible(False)
-    axis.set_ylabel(f"{label} (a.u.)", fontsize=11)
+    axis.set_ylabel(f"{label} (s)", fontsize=11)
     axis.text(
         0.01,
         0.96,

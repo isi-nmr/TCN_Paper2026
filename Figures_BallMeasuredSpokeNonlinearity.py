@@ -63,7 +63,9 @@ trajectoryScale = np.max(np.abs(normalizedTrajectories[referenceIndex]))
 normalizedGradients = [gradient / gradientScale for gradient in normalizedGradients]
 normalizedTrajectories = [trajectory / trajectoryScale for trajectory in normalizedTrajectories]
 trajectoryReference = normalizedTrajectories[referenceIndex]
-trajectoryDeviations = [trajectory - trajectoryReference for trajectory in normalizedTrajectories]
+trajectoryDeviationsPercent = [
+    100 * (trajectory - trajectoryReference) for trajectory in normalizedTrajectories
+]
 
 gradientDwellTimeMs = float(method["GradRes"])
 acquisitionDwellTimeMs = float(method["PVM_TrajDwAcq"])
@@ -130,7 +132,7 @@ nominalGradientZeroSample = gradientZeroIndex - nominalGradient[gradientZeroInde
 )
 nominalGradientZeroTimeMs = nominalGradientZeroSample * acquisitionDwellTimeMs
 
-gradientInset = axes[0].inset_axes([0.32, 0.14, 0.27, 0.29])
+gradientInset = axes[0].inset_axes([0.34, 0.14, 0.27, 0.29])
 for color, gradient in zip(colors, normalizedGradients):
     gradientInset.plot(timeMs, gradient, color=color, linewidth=1.0)
 gradientInset.plot(
@@ -144,15 +146,15 @@ gradientInset.axhline(0, color="0.4", linewidth=0.7)
 gradientInset.axvline(
     nominalGradientZeroTimeMs, color="tab:red", linestyle="--", linewidth=0.9
 )
-gradientInset.set_xlim(nominalGradientZeroTimeMs - 0.04, nominalGradientZeroTimeMs + 0.04)
-gradientInset.set_ylim(-0.35, 0.35)
+gradientInset.set_xlim(nominalGradientZeroTimeMs - 0.012, nominalGradientZeroTimeMs + 0.01)
+gradientInset.set_ylim(-0.1, 0.1)
 gradientInset.set_title("Gradient zero-crossing zoom", fontsize=7.5)
 gradientInset.set_xlabel("Time (ms)", fontsize=6.5, labelpad=1)
 gradientInset.set_ylabel("Normalized gradient (-)", fontsize=6.5, labelpad=1)
 gradientInset.tick_params(labelsize=7)
 gradientInset.grid(True, linestyle="--", linewidth=0.5, alpha=0.3)
 
-for color, spokeIndex, deviation in zip(colors, displayIndices, trajectoryDeviations):
+for color, spokeIndex, deviation in zip(colors, displayIndices, trajectoryDeviationsPercent):
     if spokeIndex == displayIndices[referenceIndex]:
         continue
     axes[1].plot(
@@ -163,7 +165,9 @@ for color, spokeIndex, deviation in zip(colors, displayIndices, trajectoryDeviat
         label=f"{100 * xScaling[spokeIndex]:.1f}%",
     )
 axes[1].axhline(0, color="black", linewidth=0.8, alpha=0.55)
-axes[1].set_ylabel("Normalized trajectory deviation\nfrom +100% reference (-)")
+axes[1].set_ylabel(
+    "Deviations of normalized measured\ntrajectories from the +100% reference (%)"
+)
 axes[1].set_title("Normalized trajectory deviations")
 
 axes[2].scatter(
