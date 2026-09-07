@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.ticker import FuncFormatter
 import torch
 from torch.utils.data import random_split
 
@@ -158,20 +157,28 @@ def onlyValidSamples(y, valid):
 
 
 def formatTrajectoryAxis(axis, label):
-    """Show normalized-gradient integrals in seconds at a readable scale."""
-    scale = 1e-4
-    axis.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value / scale:g}"))
-    axis.yaxis.offsetText.set_visible(False)
-    axis.set_ylabel(f"{label} (s)", fontsize=11)
-    axis.text(
-        0.01,
-        0.96,
-        r"$\times 10^{-4}$",
-        transform=axis.transAxes,
-        ha="left",
-        va="top",
-        fontsize=9,
-    )
+    axis.set_ylabel(f"{label} (mm$^{{-1}}$)", fontsize=11)
+
+
+def supplementStyle(method):
+    return {
+        "Nominal": dict(color="0.65", linestyle="-", linewidth=1.2, zorder=1),
+        "Measured": dict(color="black", linestyle=":", linewidth=1.6, zorder=4),
+        "GIRF corrected": dict(color="darkorange", linestyle="--", linewidth=1.3, zorder=2),
+        "TCN corrected": dict(color="seagreen", linestyle="-.", linewidth=1.3, zorder=3),
+    }[method]
+
+
+def loadGradientCalibration(dataPaths, scansS):
+    # Dataset targets are divided by this calibration and the signed input
+    # amplitude. Undo both to recover Hz/mm (gradient) and cycles/mm (k).
+    values = [
+        float(ReadParamFile(os.path.join(path, str(scan), "method"))["PVM_GradCalConst"])
+        for path, scans in zip(dataPaths, scansS, strict=True) for scan in scans
+    ]
+    if not values or not np.all(np.isfinite(values)) or min(values) <= 0 or not np.allclose(values, values[0]):
+        raise ValueError("Sup4 requires one common positive gradient calibration; mixed scans need per-curve calibration")
+    return values[0]
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -179,6 +186,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 fullConfig = load_config()
 dataPaths, scansS = LoadTrainingDataConfig(fullConfig)
 testingShapeTypes = LoadTestingShapeTypes(fullConfig)
+gradientCalibration = loadGradientCalibration(dataPaths, scansS)
 
 config = fullConfig["model"]
 modelType = config["model"]
@@ -512,14 +520,15 @@ def evaluateAxis(axisSymbol, gradAxisInd):
         for plotInd, curveInd in enumerate(exampleIndices):
             fig, ax = plt.subplots(4, 1, figsize=(7.2, 8.4), sharex=True)
             curveValid = maskData[curveInd, 0, :] > 0
-            measured = onlyValidSamples(1e2 * yData[curveInd, 0, :] * xData[curveInd, 1, 0], curveValid)
-            theoryGrad = onlyValidSamples(1e2 * theoryGradAligned[curveInd, 0, :] * xData[curveInd, 1, 0], curveValid)
-            girfGrad = onlyValidSamples(1e2 * girfPred[curveInd, 0, :] * xData[curveInd, 1, 0], curveValid)
-            tcnGrad = onlyValidSamples(1e2 * yPred[curveInd, 0, :] * xData[curveInd, 1, 0], curveValid)
-            measuredTraj = onlyValidSamples(yTraj[curveInd, 0, :], curveValid)
-            theoryCurveTraj = onlyValidSamples(theoryTraj[curveInd, 0, :], curveValid)
-            girfCurveTraj = onlyValidSamples(girfTraj[curveInd, 0, :], curveValid)
-            tcnCurveTraj = onlyValidSamples(tcnTraj[curveInd, 0, :], curveValid)
+            physicalScale = gradientCalibration * xData[curveInd, 1, 0]
+            measured = onlyValidSamples(physicalScale * yData[curveInd, 0, :], curveValid)
+            theoryGrad = onlyValidSamples(physicalScale * theoryGradAligned[curveInd, 0, :], curveValid)
+            girfGrad = onlyValidSamples(physicalScale * girfPred[curveInd, 0, :], curveValid)
+            tcnGrad = onlyValidSamples(physicalScale * yPred[curveInd, 0, :], curveValid)
+            measuredTraj = onlyValidSamples(physicalScale * yTraj[curveInd, 0, :], curveValid)
+            theoryCurveTraj = onlyValidSamples(physicalScale * theoryTraj[curveInd, 0, :], curveValid)
+            girfCurveTraj = onlyValidSamples(physicalScale * girfTraj[curveInd, 0, :], curveValid)
+            tcnCurveTraj = onlyValidSamples(physicalScale * tcnTraj[curveInd, 0, :], curveValid)
             theoryGradErr = theoryGrad - measured
             girfGradErr = girfGrad - measured
             tcnGradErr = tcnGrad - measured
@@ -527,31 +536,29 @@ def evaluateAxis(axisSymbol, gradAxisInd):
             girfTrajErr = girfCurveTraj - measuredTraj
             tcnTrajErr = tcnCurveTraj - measuredTraj
 
-            ax[0].plot(t, theoryGrad, color=lineColors["Nominal"], label="Nominal")
-            ax[0].plot(t, measured, color=lineColors["Measured"], label="Measured")
-            ax[0].plot(t, girfGrad, color=lineColors["GIRF corrected"], label="GIRF corrected")
-            ax[0].plot(t, tcnGrad, color=lineColors["TCN corrected"], label="TCN corrected")
-            ax[0].set_ylabel(f"G{axisSymbol} (%)", fontsize=11)
+            ax[0].plot(t, theoryGrad, **supplementStyle("Nominal"), label="Nominal")
+            ax[0].plot(t, measured, **supplementStyle("Measured"), label="Measured")
+            ax[0].plot(t, girfGrad, **supplementStyle("GIRF corrected"), label="GIRF corrected")
+            ax[0].plot(t, tcnGrad, **supplementStyle("TCN corrected"), label="TCN corrected")
+            ax[0].set_ylabel(f"G{axisSymbol} (Hz/mm)", fontsize=11)
             ax[0].legend(loc="upper center", bbox_to_anchor=(0.5, 1.34), ncol=4, frameon=False, fontsize=9)
 
-            ax[1].plot(t, theoryGradErr, color=lineColors["Nominal"], label="Nominal")
-            ax[1].plot(t, girfGradErr, color=lineColors["GIRF corrected"], label="GIRF corrected")
-            ax[1].plot(t, tcnGradErr, color=lineColors["TCN corrected"], label="TCN corrected")
-            ax[1].set_ylabel("Gradient error (%)", fontsize=11)
-            ax[1].axhline(0, linewidth=1)
+            ax[1].plot(t, theoryGradErr, **supplementStyle("Nominal"), label="Nominal")
+            ax[1].plot(t, girfGradErr, **supplementStyle("GIRF corrected"), label="GIRF corrected")
+            ax[1].plot(t, tcnGradErr, **supplementStyle("TCN corrected"), label="TCN corrected")
+            ax[1].set_ylabel("Gradient error (Hz/mm)", fontsize=11)
 
-            ax[2].plot(t, measuredTraj, color=lineColors["Measured"], label="Measured")
-            ax[2].plot(t, theoryCurveTraj, color=lineColors["Nominal"], label="Nominal")
-            ax[2].plot(t, girfCurveTraj, color=lineColors["GIRF corrected"], label="GIRF corrected")
-            ax[2].plot(t, tcnCurveTraj, color=lineColors["TCN corrected"], label="TCN corrected")
-            formatTrajectoryAxis(ax[2], "Trajectory")
+            ax[2].plot(t, measuredTraj, **supplementStyle("Measured"), label="Measured")
+            ax[2].plot(t, theoryCurveTraj, **supplementStyle("Nominal"), label="Nominal")
+            ax[2].plot(t, girfCurveTraj, **supplementStyle("GIRF corrected"), label="GIRF corrected")
+            ax[2].plot(t, tcnCurveTraj, **supplementStyle("TCN corrected"), label="TCN corrected")
+            formatTrajectoryAxis(ax[2], "k")
 
-            ax[3].plot(t, theoryTrajErr, color=lineColors["Nominal"], label="Nominal")
-            ax[3].plot(t, girfTrajErr, color=lineColors["GIRF corrected"], label="GIRF corrected")
-            ax[3].plot(t, tcnTrajErr, color=lineColors["TCN corrected"], label="TCN corrected")
+            ax[3].plot(t, theoryTrajErr, **supplementStyle("Nominal"), label="Nominal")
+            ax[3].plot(t, girfTrajErr, **supplementStyle("GIRF corrected"), label="GIRF corrected")
+            ax[3].plot(t, tcnTrajErr, **supplementStyle("TCN corrected"), label="TCN corrected")
             ax[3].set_xlabel("Time (ms)", fontsize=11)
             formatTrajectoryAxis(ax[3], "Trajectory error")
-            ax[3].axhline(0, linewidth=1)
 
             nonZeroIndices = np.flatnonzero(((xData[curveInd, 0, :] * xData[curveInd, 1, 0]) != 0) & curveValid)
             if nonZeroIndices.size > 0:

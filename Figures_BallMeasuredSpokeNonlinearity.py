@@ -90,6 +90,7 @@ kSpaceCenters = np.array(
     ]
 )
 validCenters &= np.isfinite(kSpaceCenters)
+# RadRead_ReadGrad is expressed as a percentage of the gradient system's full scale.
 xGradientAmplitude = xScaling * float(method["RadRead_ReadGrad"])
 
 fig, axes = plt.subplots(3, 1, figsize=(6.2, 10.2))
@@ -100,12 +101,13 @@ for color, spokeIndex, gradient in zip(colors, displayIndices, normalizedGradien
         gradient,
         color=color,
         linewidth=1.6,
-        label=f"{100 * xScaling[spokeIndex]:.1f}%",
+        label=f"{xScaling[spokeIndex]:+.1f}",
     )
 axes[0].plot(
     timeMs,
     nominalGradient,
-    color="black",
+    color="0.4",
+    alpha=0.6,
     linestyle="--",
     linewidth=1.8,
     label="Nominal",
@@ -113,7 +115,7 @@ axes[0].plot(
 axes[0].set_ylabel("Normalized gradient (-)")
 axes[0].set_title("Normalized nominal and measured gradient shapes")
 axes[0].legend(
-    title="X scaling",
+    title="X scale factor (−)",
     fontsize=7.5,
     title_fontsize=8,
     ncol=2,
@@ -138,7 +140,8 @@ for color, gradient in zip(colors, normalizedGradients):
 gradientInset.plot(
     timeMs,
     nominalGradient,
-    color="black",
+    color="0.4",
+    alpha=0.6,
     linestyle="--",
     linewidth=1.3,
 )
@@ -162,11 +165,11 @@ for color, spokeIndex, deviation in zip(colors, displayIndices, trajectoryDeviat
         deviation,
         color=color,
         linewidth=1.6,
-        label=f"{100 * xScaling[spokeIndex]:.1f}%",
+        label=f"{xScaling[spokeIndex]:+.1f}",
     )
 axes[1].axhline(0, color="black", linewidth=0.8, alpha=0.55)
 axes[1].set_ylabel(
-    "Deviations of normalized measured\ntrajectories from the +100% reference (%)"
+    "Deviations of normalized measured\ntrajectories from the +1.0 reference (%)"
 )
 axes[1].set_title("Normalized trajectory deviations")
 
@@ -186,7 +189,7 @@ axes[2].axhline(
     linewidth=1.2,
     label="Expected k-space center based on nominal-waveform ",
 )
-axes[2].set_xlabel("Commanded gradient amplitude (%)")
+axes[2].set_xlabel("Commanded gradient amplitude (% of system full scale)")
 axes[2].set_ylabel("k-space center\n(readout sample)")
 axes[2].set_title("K-space center versus gradient amplitude")
 axes[2].legend(fontsize=7.5, frameon=False)
