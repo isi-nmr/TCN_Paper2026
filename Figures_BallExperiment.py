@@ -5,6 +5,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from utils.BrukerMRI import *
 from utils.GradientCorrector import GradientCorector
@@ -93,7 +94,7 @@ studyFolder = str(PaperDataPath("radial_ball_phantom"))
 referenceStudyFolder = Path(
     os.environ.get(
         "BALL_REFERENCE_STUDY",
-        "/mnt/md1/nmr-bruker/PV-360.3.7/vitous/20260817_091028_Test_ballTraj_1_2",
+        str(PaperDataPath("radial_ball_measured_trajectories")),
     )
 )
 
@@ -226,7 +227,9 @@ for scan in scans:
     bartCommand = ""
 
     # bartCommand += f"nlinv {reg} --reg-iter 350 -d4 -a {float(a)} -b {float(b)} -g -S -x {newTotalSize}:{newTotalSize}:{1}"
-    bartCommand += f"nlinv -d4 -a {float(a)} -b {float(b)} -g -S -x {methodFile['PVM_Matrix'][0]}:{methodFile['PVM_Matrix'][1]}:{1}"
+    bartCommand += f"nlinv -d4 -a {float(a)} -b {float(b)} -S -x {methodFile['PVM_Matrix'][0]}:{methodFile['PVM_Matrix'][1]}:{1}"
+    if torch.cuda.is_available():
+        bartCommand += " -g"
 
     bartCommand += " -i 20"
 

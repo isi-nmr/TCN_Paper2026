@@ -33,6 +33,7 @@ Important notes:
 - PyTorch wheels are configured from the CUDA 12.8 PyTorch index in `pyproject.toml`.
 - `Figures_BallExperiment.py` requires BART 1.0, specifically the v1.0.00 release: https://codeberg.org/mrirecon/bart/releases/tag/v1.0.00. If a `bart` command is available on `PATH`, the script uses that installation.
 - Trained models are expected in `utils/gradModels/`.
+- Ball reconstruction uses BART's GPU mode when CUDA is available and CPU mode otherwise.
 
 
 ## Training Current TCN Models
@@ -150,9 +151,9 @@ To fully regenerate the paper outputs, a user needs:
 
 Download the paper dataset from Zenodo:
 
-https://doi.org/10.5281/zenodo.21283064
+https://doi.org/10.5281/zenodo.22659300
 
-Extract it into the project root as:
+Extract `zenodoData.zip` into `paperData/` to obtain:
 
 ```text
 paperData/
@@ -162,8 +163,8 @@ paperData/
   tcn_training_testing/
   after_adjustments_response/
   radial_ball_phantom/
+  radial_ball_measured_trajectories/
 ```
-
 ## Acknowledgment
 
 This repository also contains code adapted from the original TCN gradient-system modeling work by Johnatan B. Martin and coauthors:

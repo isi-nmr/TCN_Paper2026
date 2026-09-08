@@ -1,12 +1,14 @@
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from utils.BrukerMRI import ReadParamFile
+from utils.utils import PaperDataPath
 
 
-STUDY = Path("/mnt/md1/nmr-bruker/PV-360.3.7/vitous/20260817_091028_Test_ballTraj_1_2")
+STUDY = Path(os.environ.get("BALL_REFERENCE_STUDY", str(PaperDataPath("radial_ball_measured_trajectories"))))
 SCAN = 13
 MINIMUM_X_SCALING = 0.1
 DISPLAY_SCALINGS = np.array(
