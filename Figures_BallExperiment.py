@@ -607,5 +607,13 @@ plt.tight_layout()
 plt.savefig("paper2026/BallSSIM.png", dpi=600, bbox_inches="tight")
 plt.savefig("paper2026/BallSSIM.pdf", bbox_inches="tight")
 
+# Keep the manuscript filenames synchronized with the generated source figures.
+for sourceName, paperName in (
+    ("BallGridSubtraction.pdf", "Fig_5.pdf"),
+    ("BallSSIM.pdf", "Fig_6.pdf"),
+    ("BallGridNotSaturated.pdf", "Sup3.pdf"),
+):
+    shutil.copyfile(Path("paper2026") / sourceName, Path("paper2026") / paperName)
+
 plt.show()
 pass

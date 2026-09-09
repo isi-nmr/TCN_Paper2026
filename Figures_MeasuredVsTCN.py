@@ -182,6 +182,9 @@ def loadGradientCalibration(dataPaths, scansS):
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Keep evaluation precision consistent across CPU, pre-Ampere GPUs, and Ampere GPUs.
+torch.backends.cudnn.allow_tf32 = False
+torch.backends.cuda.matmul.allow_tf32 = False
 
 fullConfig = load_config()
 dataPaths, scansS = LoadTrainingDataConfig(fullConfig)

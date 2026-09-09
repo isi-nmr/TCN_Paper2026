@@ -87,6 +87,14 @@ The benchmark settings are fixed in `Table_BenchmarkTCNPredictionSpeed.py`, and 
 
 Most figure scripts write `.png` and `.pdf` files to `paper2026/`.
 
+`Figures_MeasuredVsTCN.py` disables TF32 for full-FP32 GPU evaluation, reducing
+hardware-dependent differences in the reported error metrics. The speed benchmark
+uses PyTorch's default precision settings; record these alongside its hardware.
+
+`Figures_BallExperiment.py` also refreshes the manuscript copies:
+`Fig_5.pdf` from `BallGridSubtraction.pdf`, `Fig_6.pdf` from `BallSSIM.pdf`,
+and `Sup3.pdf` from `BallGridNotSaturated.pdf`.
+
 ## Tune-Up Scripts
 
 | Script | Purpose |
