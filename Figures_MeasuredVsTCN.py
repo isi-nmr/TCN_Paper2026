@@ -215,7 +215,7 @@ lineColors = {
     "TCN corrected": "seagreen",
 }
 correctionMethods = ("Nominal", "GIRF corrected", "TCN corrected")
-supplementPath = "./paper2026/Sup_4.pdf"
+supplementPath = "./paper2026/Sup_6.pdf"
 supplementPdf = PdfPages(supplementPath)
 
 from utils.GradientCorrector import GradientCorector
@@ -657,5 +657,5 @@ with open("./paper2026/waveformNRMSE_testing_curves.csv", "w") as nrmseFile:
     for row in distributionRows:
         nrmseFile.write(f"{row['axis']},{row['waveform']},{row['method']},{row['curve_index']},{row['shape']},{row['nrmse']:.8e}\n")
 
-plotCombinedNrmseBoxplots(distributionRows, "Sup_2")
+plotCombinedNrmseBoxplots(distributionRows, "Sup_5")
 plotTrajectoryResidualHistograms(residualRows, "trajectoryResidualHistograms")

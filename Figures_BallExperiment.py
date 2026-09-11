@@ -611,7 +611,8 @@ plt.savefig("paper2026/BallSSIM.pdf", bbox_inches="tight")
 for sourceName, paperName in (
     ("BallGridSubtraction.pdf", "Fig_5.pdf"),
     ("BallSSIM.pdf", "Fig_6.pdf"),
-    ("BallGridNotSaturated.pdf", "Sup3.pdf"),
+    ("BallGridNotSaturated.pdf", "Sup_4.pdf"),
+    ("BallGridNotSaturated.png", "Sup_4.png"),
 ):
     shutil.copyfile(Path("paper2026") / sourceName, Path("paper2026") / paperName)
 

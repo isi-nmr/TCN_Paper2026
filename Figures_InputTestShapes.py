@@ -23,7 +23,7 @@ shapeColors = {
     "TRIANGLE": "tab:olive",
 }
 plotDurationMs = 4.0
-outPath = "paper2026/InputTestShapes.pdf"
+outPath = "paper2026/Sup_1.pdf"
 outRes = 2e-6
 
 

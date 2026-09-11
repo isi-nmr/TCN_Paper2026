@@ -93,7 +93,7 @@ uses PyTorch's default precision settings; record these alongside its hardware.
 
 `Figures_BallExperiment.py` also refreshes the manuscript copies:
 `Fig_5.pdf` from `BallGridSubtraction.pdf`, `Fig_6.pdf` from `BallSSIM.pdf`,
-and `Sup3.pdf` from `BallGridNotSaturated.pdf`.
+and `Sup_4.pdf` / `Sup_4.png` from `BallGridNotSaturated.pdf` / `.png`.
 
 ## Tune-Up Scripts
 

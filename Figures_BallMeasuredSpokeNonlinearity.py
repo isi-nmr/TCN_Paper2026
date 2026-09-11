@@ -57,7 +57,7 @@ for spokeIndex in displayIndices:
     normalizedTrajectories.append(trajectory)
     normalizedGradients.append(gradient)
 
-# As in the existing Sup_5 analysis, use one common display scale from the
+# As in the existing amplitude-dependent nonlinearity analysis, use one common display scale from the
 # maximum positive-amplitude response rather than peak-normalizing each curve.
 referenceIndex = int(np.argmax([xScaling[index] for index in displayIndices]))
 gradientScale = np.max(np.abs(normalizedGradients[referenceIndex]))
@@ -207,5 +207,5 @@ fig.subplots_adjust(left=0.17, right=0.98, bottom=0.07, top=0.96, hspace=0.42)
 
 outputDirectory = Path("paper2026")
 outputDirectory.mkdir(exist_ok=True)
-fig.savefig(outputDirectory / "Sup_5.png", dpi=600, bbox_inches="tight")
-fig.savefig(outputDirectory / "Sup_5.pdf", bbox_inches="tight")
+fig.savefig(outputDirectory / "Sup_7.png", dpi=600, bbox_inches="tight")
+fig.savefig(outputDirectory / "Sup_7.pdf", bbox_inches="tight")
